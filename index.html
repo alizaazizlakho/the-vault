@@ -550,6 +550,53 @@
   }
   .rc-del.visible { display: block; }
 
+  /* TO-DOS */
+  .todos-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .todo-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(46,68,34,0.4);
+    animation: slideIn 0.2s ease;
+  }
+  .todo-row:last-child { border-bottom: none; }
+  .todo-emoji { font-size: 18px; flex-shrink: 0; }
+  .todo-name { flex: 1; font-size: 14px; color: var(--text-bright); }
+  .todo-pts { font-size: 12px; color: var(--green-bright); white-space: nowrap; }
+  .todo-claim-btn {
+    background: var(--green-dim);
+    border: 1px solid var(--green);
+    border-radius: 2px;
+    padding: 5px 12px;
+    font-size: 11px;
+    cursor: pointer;
+    color: var(--green-bright);
+    font-family: 'Cinzel', serif;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .todo-claim-btn:hover { background: var(--green); color: var(--bg); }
+  .todo-del-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--red);
+    font-size: 14px;
+    padding: 4px;
+    line-height: 1;
+    display: none;
+  }
+  .todo-del-btn.visible { display: block; }
+  .todos-empty { padding: 24px; text-align: center; font-size: 14px; color: var(--text-dim); font-style: italic; }
+
   /* LOG */
   .log-panel {
     background: var(--panel);
@@ -778,6 +825,12 @@
   <div id="categoriesContainer"></div>
 
   <div class="section-head">
+    <div class="section-title-txt">To-Do</div>
+    <button class="add-btn visible" onclick="openModal('todo')">+ Add To-Do</button>
+  </div>
+  <div class="todos-panel" id="todosContainer"></div>
+
+  <div class="section-head">
     <div class="section-title-txt">Rewards</div>
     <button class="add-btn" id="addRewardBtn" onclick="openModal('reward')">+ Add Reward</button>
   </div>
@@ -872,7 +925,7 @@ const RATE_PTS = 100;
 function defaultState() {
   return {
     totalPoints: 0, todayPoints: 0, todayDate: todayStr(), dollarBudget: 0,
-    ratePerHundred: 5, hoursInput: 0, log: [],
+    ratePerHundred: 5, hoursInput: 0, log: [], todos: [],
     categories: [
       { id: 'deepwork', name: 'Deep Work', actions: [
         { id: 'a1', emoji: '🇫🇷', name: 'French / Anki session', pts: 15 },
@@ -923,7 +976,7 @@ function checkDay() {
 }
 
 // ── RENDER ────────────────────────────────────────────────────
-function renderAll() { renderCategories(); renderRewards(); renderLog(); updateStats(); }
+function renderAll() { renderCategories(); renderTodos(); renderRewards(); renderLog(); updateStats(); }
 
 function renderCategories() {
   const c = document.getElementById('categoriesContainer');
@@ -1014,6 +1067,66 @@ function renderCategories() {
     addCatBtn.onclick = () => openModal('category');
     c.appendChild(addCatBtn);
   }
+}
+
+function renderTodos() {
+  const c = document.getElementById('todosContainer');
+  if (!state.todos || !state.todos.length) {
+    c.innerHTML = '<div class="todos-empty">No to-dos yet. Add a task above to get started.</div>';
+    return;
+  }
+  c.innerHTML = '';
+  state.todos.forEach(todo => {
+    const row = document.createElement('div');
+    row.className = 'todo-row';
+
+    const em = document.createElement('span');
+    em.className = 'todo-emoji';
+    em.textContent = todo.emoji;
+    row.appendChild(em);
+
+    const nm = document.createElement('span');
+    nm.className = 'todo-name';
+    nm.textContent = todo.name;
+    row.appendChild(nm);
+
+    const pts = document.createElement('span');
+    pts.className = 'todo-pts';
+    pts.textContent = '+' + todo.pts + ' pts';
+    row.appendChild(pts);
+
+    const claim = document.createElement('button');
+    claim.className = 'todo-claim-btn';
+    claim.textContent = 'Claim';
+    claim.onclick = () => claimTodo(todo.id);
+    row.appendChild(claim);
+
+    const del = document.createElement('button');
+    del.className = 'todo-del-btn' + (editMode ? ' visible' : '');
+    del.textContent = '✕';
+    del.onclick = () => deleteTodo(todo.id);
+    row.appendChild(del);
+
+    c.appendChild(row);
+  });
+}
+
+function claimTodo(id) {
+  const todo = (state.todos || []).find(t => t.id === id);
+  if (!todo) return;
+  checkDay();
+  state.totalPoints += todo.pts;
+  state.todayPoints += todo.pts;
+  state.dollarBudget += todo.pts * (state.ratePerHundred / RATE_PTS);
+  addLog(todo.emoji + ' ' + todo.name, todo.pts);
+  showToast('+' + todo.pts + ' pts — task done!');
+  state.todos = state.todos.filter(t => t.id !== id);
+  saveToSupabase(); renderAll();
+}
+
+function deleteTodo(id) {
+  state.todos = (state.todos || []).filter(t => t.id !== id);
+  saveToSupabase(); renderTodos();
 }
 
 function buildHoursPanel() {
@@ -1190,8 +1303,8 @@ function openModal(type, catId) {
   document.getElementById('mEmoji').value = '';
   document.getElementById('mName').value = '';
   document.getElementById('mPts').value = '';
-  const titles = { action: 'Add Action', reward: 'Add Reward', category: 'Add Category' };
-  const placeholders = { action: 'Points', reward: 'Points required', category: 'Leave blank for default' };
+  const titles = { action: 'Add Action', reward: 'Add Reward', category: 'Add Category', todo: 'Add To-Do' };
+  const placeholders = { action: 'Points', reward: 'Points required', category: 'Leave blank for default', todo: 'Points for completing' };
   document.getElementById('modalTitle').textContent = titles[type] || 'Add';
   document.getElementById('mPts').placeholder = placeholders[type] || 'Points';
   document.getElementById('modalOverlay').className = 'modal-overlay open';
@@ -1211,6 +1324,9 @@ function saveModal() {
     cat.actions.push({ id: uid(), emoji, name, pts: Math.max(1, pts || 5) });
   } else if (modalType === 'reward') {
     state.rewards.push({ id: uid(), emoji, name, pts: Math.max(1, pts || 50) });
+  } else if (modalType === 'todo') {
+    if (!state.todos) state.todos = [];
+    state.todos.push({ id: uid(), emoji, name, pts: Math.max(1, pts || 10) });
   } else {
     state.categories.push({ id: uid(), name, actions: [] });
   }
