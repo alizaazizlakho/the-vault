@@ -885,10 +885,10 @@ async function loadFromSupabase() {
   setSyncStatus('syncing', 'Loading...');
   try {
     const { data, error } = await sb.from('vault_state').select('data').eq('id', 'main').single();
-    if (error || !data || !data.data || !data.data.totalPoints === undefined) {
+    if (error || !data || !data.data || data.data.totalPoints === undefined) {
       loadFromLocal();
     } else {
-      state = data.data;
+      state = mergeDefaults(data.data);
       setSyncStatus('synced', 'Synced');
       document.getElementById('lastSynced').textContent = 'Loaded ' + new Date().toLocaleTimeString();
     }
@@ -943,6 +943,7 @@ function defaultState() {
         { id: 'b4', emoji: '🏃‍♀️', name: 'Ran / worked out', pts: 12 },
         { id: 'b5', emoji: '🥗', name: 'Cooked healthy meal', pts: 8 },
         { id: 'b6', emoji: '🧁', name: 'Baked something', pts: 6 },
+        { id: 'b7', emoji: '👗', name: 'Put together a real outfit', pts: 3 },
       ]},
       { id: 'habits', name: 'Daily Habits', actions: [
         { id: 'c1', emoji: '🌙', name: 'Slept on time', pts: 10 },
@@ -950,6 +951,7 @@ function defaultState() {
         { id: 'c3', emoji: '📵', name: 'No morning scroll', pts: 5 },
         { id: 'c4', emoji: '💧', name: 'Drank enough water', pts: 3 },
         { id: 'c5', emoji: '📖', name: 'Read (not phone)', pts: 6 },
+        { id: 'c6', emoji: '🧹', name: 'Tidied space', pts: 4 },
       ]},
     ],
     rewards: [
@@ -960,13 +962,41 @@ function defaultState() {
       { id: 'r5', emoji: '👟', name: 'Clothing item', pts: 300 },
       { id: 'r6', emoji: '💆‍♀️', name: 'Spa / massage', pts: 350 },
       { id: 'r7', emoji: '✈️', name: 'Trip / big experience', pts: 600 },
+      { id: 'r8', emoji: '🛍', name: 'Splurge — no limits', pts: 500 },
     ]
   };
 }
 
+function mergeDefaults(s) {
+  const def = defaultState();
+  if (!s.categories) {
+    s.categories = def.categories;
+  } else {
+    def.categories.forEach(defCat => {
+      const existing = s.categories.find(c => c.id === defCat.id);
+      if (!existing) {
+        s.categories.push(defCat);
+      } else {
+        defCat.actions.forEach(defAct => {
+          if (!existing.actions.find(a => a.id === defAct.id)) existing.actions.push(defAct);
+        });
+      }
+    });
+  }
+  if (!s.rewards) s.rewards = def.rewards;
+  else def.rewards.forEach(defR => { if (!s.rewards.find(r => r.id === defR.id)) s.rewards.push(defR); });
+  if (!s.todos) s.todos = [];
+  if (!s.log) s.log = [];
+  if (s.totalPoints === undefined) s.totalPoints = 0;
+  if (s.todayPoints === undefined) s.todayPoints = 0;
+  if (s.dollarBudget === undefined) s.dollarBudget = 0;
+  if (s.ratePerHundred === undefined) s.ratePerHundred = def.ratePerHundred;
+  return s;
+}
+
 function saveLocal() { localStorage.setItem('vault3', JSON.stringify(state)); }
 function loadFromLocal() {
-  try { const s = localStorage.getItem('vault3'); if (s) state = JSON.parse(s); else state = defaultState(); }
+  try { const s = localStorage.getItem('vault3'); if (s) state = mergeDefaults(JSON.parse(s)); else state = defaultState(); }
   catch(e) { state = defaultState(); }
 }
 function todayStr() { return new Date().toLocaleDateString('en-CA'); }
