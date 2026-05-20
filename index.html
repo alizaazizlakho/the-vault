@@ -874,7 +874,7 @@ const supabaseConfigured = SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON
 let sb = null;
 
 if (supabaseConfigured) {
-  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  sb = supabase.createClient(SUPABASE_URL.trim(), SUPABASE_ANON_KEY.trim());
 } else {
   document.getElementById('setupWarning').style.display = 'block';
   setSyncStatus('local', 'Local only — Supabase not set up');
@@ -894,10 +894,12 @@ async function loadFromSupabase() {
     const { data, error } = await sb.from('vault_state').select('data').eq('id', 'main').single();
     if (error || !data || !data.data || data.data.totalPoints === undefined) {
       loadFromLocal();
+      saveToSupabase();
     } else {
       state = mergeDefaults(data.data);
       setSyncStatus('synced', 'Synced');
       document.getElementById('lastSynced').textContent = 'Loaded ' + new Date().toLocaleTimeString();
+      saveToSupabase();
     }
   } catch(e) {
     loadFromLocal();
@@ -1013,7 +1015,13 @@ function checkDay() {
 }
 
 // ── RENDER ────────────────────────────────────────────────────
-function renderAll() { renderCategories(); renderTodos(); renderRewards(); renderLog(); updateStats(); }
+function renderAll() {
+  if (!state.categories || !state.categories.length) {
+    state = mergeDefaults(state);
+    saveToSupabase();
+  }
+  renderCategories(); renderTodos(); renderRewards(); renderLog(); updateStats();
+}
 
 function renderCategories() {
   const c = document.getElementById('categoriesContainer');
