@@ -165,10 +165,17 @@
     align-items: center;
     gap: 8px;
     font-size: 13px;
-    color: var(--text-dim);
+    color: var(--gold);
     cursor: pointer;
     user-select: none;
+    background: var(--bg3);
+    border: 1px solid var(--border-gold);
+    border-radius: 2px;
+    padding: 6px 12px;
+    transition: all 0.15s;
   }
+  .edit-toggle:hover { background: var(--panel2); }
+  .edit-toggle.active { background: var(--green-dim); border-color: var(--green); color: var(--green-bright); }
   .toggle-track {
     width: 36px; height: 20px;
     background: var(--border);
@@ -784,7 +791,7 @@
   <div class="toolbar">
     <label class="edit-toggle" onclick="toggleEdit()">
       <div class="toggle-track" id="editTrack"><div class="toggle-thumb"></div></div>
-      <span id="editLabel">Edit mode</span>
+      <span id="editLabel">✎ Edit</span>
     </label>
     <div class="toolbar-right">
       <button class="tb-btn" onclick="exportData()">⬇ Export</button>
@@ -1310,8 +1317,10 @@ function clearLog() { state.log = []; saveToSupabase(); renderLog(); }
 // ── EDIT MODE ─────────────────────────────────────────────────
 function toggleEdit() {
   editMode = !editMode;
+  const label = document.querySelector('.edit-toggle');
+  label.className = 'edit-toggle' + (editMode ? ' active' : '');
   document.getElementById('editTrack').className = 'toggle-track' + (editMode ? ' on' : '');
-  document.getElementById('editLabel').textContent = editMode ? 'Edit mode on' : 'Edit mode';
+  document.getElementById('editLabel').textContent = editMode ? '✎ Editing — tap to lock' : '✎ Edit';
   document.getElementById('addRewardBtn').className = 'add-btn' + (editMode ? ' visible' : '');
   document.getElementById('rateDisplay').style.display = editMode ? 'none' : 'block';
   document.getElementById('rateEditInput').style.display = editMode ? 'inline-block' : 'none';
