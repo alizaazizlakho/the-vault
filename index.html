@@ -888,24 +888,29 @@ function setSyncStatus(status, msg) {
 }
 
 async function loadFromSupabase() {
-  if (!sb) { loadFromLocal(); return; }
+  state = defaultState();
+  if (!sb) {
+    loadFromLocal();
+    checkDay();
+    renderAll();
+    return;
+  }
   setSyncStatus('syncing', 'Loading...');
   try {
     const { data, error } = await sb.from('vault_state').select('data').eq('id', 'main').single();
-    if (error || !data || !data.data || data.data.totalPoints === undefined) {
-      loadFromLocal();
-      saveToSupabase();
-    } else {
+    if (!error && data && data.data && Object.keys(data.data).length > 0) {
       state = mergeDefaults(data.data);
-      setSyncStatus('synced', 'Synced');
-      document.getElementById('lastSynced').textContent = 'Loaded ' + new Date().toLocaleTimeString();
-      saveToSupabase();
+    } else {
+      loadFromLocal();
     }
+    setSyncStatus('synced', 'Synced');
+    document.getElementById('lastSynced').textContent = 'Loaded ' + new Date().toLocaleTimeString();
   } catch(e) {
     loadFromLocal();
     setSyncStatus('error', 'Offline — using local data');
   }
   checkDay();
+  saveToSupabase();
   renderAll();
 }
 
